@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办清单 - Todo List</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/calendar.css">
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div id="authPage" class="auth-page">
+        <div class="auth-container">
+            <h1>📝 待办清单</h1>
+            
+            <div class="auth-tabs">
+                <button class="tab-btn active" data-tab="login">登录</button>
+                <button class="tab-btn" data-tab="register">注册</button>
+            </div>
+            
+            <!-- 登录表单 -->
+            <form id="loginForm" class="auth-form active">
+                <div class="form-group">
+                    <input type="text" id="loginUsername" placeholder="用户名" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="loginPassword" placeholder="密码" required>
+                </div>
+                <button type="submit" class="btn-primary">登录</button>
+                <p class="error-msg" id="loginError"></p>
+            </form>
+            
+            <!-- 注册表单 -->
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <input type="text" id="regUsername" placeholder="用户名" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="regEmail" placeholder="邮箱（可选）">
+                </div>
+                <div class="form-group">
+                    <input type="password" id="regPassword" placeholder="密码" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="regConfirmPassword" placeholder="确认密码" required>
+                </div>
+                <button type="submit" class="btn-primary">注册</button>
+                <p class="error-msg" id="registerError"></p>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 主页面 -->
+    <div id="mainPage" class="main-page hidden">
+        <!-- 顶部导航 -->
+        <nav class="navbar">
+            <div class="nav-brand">📝 待办清单</div>
+            <div class="nav-menu">
+                <button class="nav-btn active" data-view="tasks">任务</button>
+                <button class="nav-btn" data-view="calendar">日历</button>
+            </div>
+            <div class="nav-user">
+                <span id="currentUser"></span>
+                <button id="logoutBtn" class="btn-logout">退出</button>
+            </div>
+        </nav>
+        
+        <!-- 内容区域 -->
+        <div class="content">
+            <!-- 任务视图 -->
+            <div id="tasksView" class="view active">
+                <!-- 统计卡片 -->
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalTasks">0</div>
+                        <div class="stat-label">总任务</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="completedTasks">0</div>
+                        <div class="stat-label">已完成</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="pendingTasks">0</div>
+                        <div class="stat-label">待处理</div>
+                    </div>
+                    <div class="stat-card highlight">
+                        <div class="stat-number" id="dueToday">0</div>
+                        <div class="stat-label">今日到期</div>
+                    </div>
+                </div>
+                
+                <!-- 添加任务 -->
+                <div class="add-task-container">
+                    <input type="text" id="taskInput" placeholder="添加新任务...">
+                    <select id="taskPriority">
+                        <option value="low">低优先级</option>
+                        <option value="normal" selected>普通</option>
+                        <option value="high">高优先级</option>
+                    </select>
+                    <input type="date" id="taskDueDate">
+                    <button id="addTaskBtn" class="btn-primary">添加</button>
+                </div>
+                
+                <!-- 任务筛选 -->
+                <div class="filter-container">
+                    <button class="filter-btn active" data-filter="all">全部</button>
+                    <button class="filter-btn" data-filter="pending">待处理</button>
+                    <button class="filter-btn" data-filter="completed">已完成</button>
+                    <button class="filter-btn" data-filter="high">高优先级</button>
+                </div>
+                
+                <!-- 任务列表 -->
+                <ul id="taskList" class="task-list"></ul>
+                
+                <!-- 空状态 -->
+                <div id="emptyState" class="empty-state hidden">
+                    <p>暂无任务，添加一个吧！</p>
+                </div>
+            </div>
+            
+            <!-- 日历视图 -->
+            <div id="calendarView" class="view hidden">
+                <div class="calendar-header">
+                    <button id="prevMonth" class="btn-icon"><</button>
+                    <h2 id="currentMonth"></h2>
+                    <button id="nextMonth" class="btn-icon">></button>
+                    <button id="addEventBtn" class="btn-primary">添加事件</button>
+                </div>
+                <div id="calendarGrid" class="calendar-grid"></div>
+            </div>
+        </div>
+        
+        <!-- MQTT 状态 -->
+        <div class="mqtt-status">
+            <span id="mqttIndicator" class="indicator offline"></span>
+            <span id="mqttStatus">MQTT: 未连接</span>
+        </div>
+    </div>
+    
+    <!-- 事件模态框 -->
+    <div id="eventModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加事件</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <form id="eventForm">
+                <div class="form-group">
+                    <label>事件标题</label>
+                    <input type="text" id="eventTitle" required>
+                </div>
+                <div class="form-group">
+                    <label>开始时间</label>
+                    <input type="datetime-local" id="eventStart" required>
+                </div>
+                <div class="form-group">
+                    <label>结束时间</label>
+                    <input type="datetime-local" id="eventEnd">
+                </div>
+                <div class="form-group">
+                    <label>全天事件</label>
+                    <input type="checkbox" id="eventAllDay">
+                </div>
+                <div class="form-group">
+                    <label>颜色</label>
+                    <input type="color" id="eventColor" value="#667eea">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea id="eventDescription"></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelEventBtn">取消</button>
+                    <button type="submit" class="btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 脚本 -->
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/mqtt.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/calendar.js"></script>
+</body>
+</html>
