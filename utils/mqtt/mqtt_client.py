@@ -3,12 +3,18 @@ MQTT 客户端 - Python
 
 依赖安装: pip install paho-mqtt
 运行: python mqtt_client.py
+
+支持:
+- 普通连接 (tcp://host:1883)
+- TLS/SSL 连接 (ssl://host:8883)
+- EMQX Cloud 等云服务
 """
 
+import ssl
 import json
 import time
 import random
-import paho.mqtt.client as mqtt
+from paho.mqtt.client import Client, CallbackAPIVersion
 
 # ============== 配置区域 ==============
 CONFIG = {
@@ -18,7 +24,11 @@ CONFIG = {
     'username': '',  # 用户名（如果需要）
     'password': '',  # 密码（如果需要）
     'topic': 'test/topic',
-    'qos': 1
+    'qos': 1,
+    # TLS 配置
+    'use_tls': False,
+    'ca_cert': None,  # CA 证书路径
+    'insecure': False,  # 是否跳过证书验证
 }
 # =====================================
 
@@ -28,7 +38,11 @@ class MqttClient:
     
     def __init__(self, config: dict):
         self.config = config
-        self.client = mqtt.Client(client_id=config['client_id'])
+        # paho-mqtt 2.x 需要指定 CallbackAPIVersion
+        self.client = Client(
+            callback_api_version=CallbackAPIVersion.VERSION2,
+            client_id=config['client_id']
+        )
         self.connected = False
         
         # 设置回调
@@ -42,19 +56,56 @@ class MqttClient:
                 config['username'], 
                 config.get('password', '')
             )
+        
+        # 设置 TLS
+        if config.get('use_tls'):
+            self._setup_tls()
     
-    def _on_connect(self, client, userdata, flags, rc):
+    def _setup_tls(self):
+        """设置 TLS/SSL 连接"""
+        try:
+            if self.config.get('ca_cert'):
+                # 使用 CA 证书验证服务器
+                self.client.tls_set(
+                    ca_certs=self.config['ca_cert'],
+                    cert_reqs=ssl.CERT_REQUIRED,
+                    tls_version=ssl.PROTOCOL_TLS
+                )
+                print(f"[TLS] 使用 CA 证书: {self.config['ca_cert']}")
+            else:
+                # 无 CA 证书
+                if self.config.get('insecure'):
+                    self.client.tls_set(cert_reqs=ssl.CERT_NONE)
+                    self.client.tls_insecure_set(True)
+                    print("[TLS] 跳过证书验证")
+                else:
+                    self.client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
+                    print("[TLS] 使用系统默认证书")
+        except Exception as e:
+            print(f"[TLS错误] {e}")
+    
+    def _on_connect(self, client, userdata, flags, rc, properties=None):
         """连接回调"""
-        if rc == 0:
+        rc_value = rc.value if hasattr(rc, 'value') else rc
+        
+        if rc_value == 0:
             self.connected = True
             print(f"[已连接] 连接到代理: {self.config['broker']}:{self.config['port']}")
         else:
-            print(f"[连接失败] 返回码: {rc}")
+            error_msgs = {
+                1: "协议版本不正确",
+                2: "客户端标识符无效",
+                3: "服务器不可用",
+                4: "用户名或密码错误",
+                5: "未授权"
+            }
+            print(f"[连接失败] 返回码: {rc_value}, 原因: {error_msgs.get(rc_value, '未知错误')}")
     
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, client, userdata, disconnect_flags, rc, properties=None):
         """断开回调"""
         self.connected = False
-        print(f"[已断开] 连接已关闭, 返回码: {rc}")
+        rc_value = rc.value if hasattr(rc, 'value') else rc
+        print(f"[已断开] 连接已关闭, 返回码: {rc_value}")
     
     def _on_message(self, client, userdata, msg):
         """消息回调"""
@@ -75,7 +126,10 @@ class MqttClient:
             )
             self.client.loop_start()
             # 等待连接建立
-            time.sleep(1)
+            timeout = 5
+            start = time.time()
+            while not self.connected and (time.time() - start) < timeout:
+                time.sleep(0.1)
         except Exception as e:
             print(f"[连接错误] {e}")
         
@@ -105,7 +159,7 @@ class MqttClient:
         
         result = self.client.publish(topic, payload, qos=qos)
         
-        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+        if result.rc == 0:
             print(f"[已发布] 主题: {topic}, 消息: {payload}")
         else:
             print(f"[发布失败] 错误码: {result.rc}")
@@ -133,7 +187,7 @@ class MqttClient:
         
         result, mid = self.client.subscribe(topic_list)
         
-        if result == mqtt.MQTT_ERR_SUCCESS:
+        if result == 0:
             topic_names = [t[0] for t in topic_list]
             print(f"[已订阅] 主题: {', '.join(topic_names)}")
         else:
@@ -155,7 +209,7 @@ class MqttClient:
         
         result, mid = self.client.unsubscribe(topics)
         
-        if result == mqtt.MQTT_ERR_SUCCESS:
+        if result == 0:
             print(f"[已取消订阅] 主题: {', '.join(topics)}")
         else:
             print(f"[取消订阅失败] 错误码: {result}")
@@ -169,29 +223,49 @@ class MqttClient:
 
 # ============== 使用示例 ==============
 if __name__ == '__main__':
+    # 示例1: 普通连接
+    print("=== 普通连接示例 ===")
     mqtt_client = MqttClient(CONFIG)
     
     # 连接
     mqtt_client.connect()
     
-    # 等待连接建立
-    time.sleep(1)
-    
-    # 订阅主题
-    def on_message(topic, message):
-        print(f"回调收到: {topic} -> {message}")
-    
-    mqtt_client.subscribe(CONFIG['topic'], callback=on_message)
-    
-    # 发布消息
-    mqtt_client.publish(CONFIG['topic'], 'Hello MQTT from Python!')
-    mqtt_client.publish(CONFIG['topic'], {'type': 'json', 'data': 'test'})
-    
-    # 保持运行
-    try:
-        time.sleep(10)
-    except KeyboardInterrupt:
-        pass
-    
-    # 断开连接
-    mqtt_client.disconnect()
+    if mqtt_client.connected:
+        # 订阅主题
+        def on_message(topic, message):
+            print(f"回调收到: {topic} -> {message}")
+        
+        mqtt_client.subscribe(CONFIG['topic'], callback=on_message)
+        
+        # 发布消息
+        mqtt_client.publish(CONFIG['topic'], 'Hello MQTT from Python!')
+        mqtt_client.publish(CONFIG['topic'], {'type': 'json', 'data': 'test'})
+        
+        # 保持运行
+        time.sleep(5)
+        
+        # 断开连接
+        mqtt_client.disconnect()
+
+
+# ============== EMQX Cloud 连接示例 ==============
+"""
+# EMQX Cloud TLS 连接配置
+EMQX_CONFIG = {
+    'broker': 'd6c1f93c.ala.cn-hangzhou.emqxsl.cn',
+    'port': 8883,
+    'client_id': f'emqx_client_{random.randint(0, 10000)}',
+    'username': 'test',
+    'password': '1111',
+    'topic': 'test/topic',
+    'qos': 1,
+    'use_tls': True,
+    'ca_cert': 'emqxsl-ca.crt',  # CA 证书路径
+}
+
+# 使用
+client = MqttClient(EMQX_CONFIG)
+client.connect()
+client.subscribe('test/topic')
+client.publish('test/topic', 'Hello EMQX!')
+"""
