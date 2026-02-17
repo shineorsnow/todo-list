@@ -33,3 +33,8 @@ logs/
 # 临时文件
 *.tmp
 *.temp
+
+# 数据库文件
+instance/
+*.db
+*.sqlite
