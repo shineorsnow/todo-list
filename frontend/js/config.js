@@ -1,7 +1,7 @@
 // 前端配置
 const CONFIG = {
-    // 后端 API 地址
-    API_BASE: 'http://localhost:5000/api',
+    // 后端 API 地址 - 使用相对路径（前端和后端在同一服务器）
+    API_BASE: '/api',
     
     // MQTT 配置 - WebSocket 连接
     MQTT: {

@@ -23,6 +23,20 @@ import json
 import threading
 import time
 
+# 日期解析辅助函数
+def parse_datetime(date_str):
+    """解析 ISO 格式日期字符串，支持带 Z 后缀的格式"""
+    if not date_str:
+        return None
+    # 替换 Z 为 +00:00，或直接去掉
+    if date_str.endswith('Z'):
+        date_str = date_str[:-1] + '+00:00'
+    try:
+        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+    except:
+        # 尝试去掉时区信息
+        return datetime.fromisoformat(date_str.split('+')[0].split('Z')[0])
+
 # 导入配置
 try:
     from config import EMQX_CONFIG, SECRET_KEY, SQLALCHEMY_DATABASE_URI, MQTT_TOPICS
@@ -32,14 +46,22 @@ except ImportError:
 # 导入 MQTT 客户端
 from utils.mqtt.mqtt_client import MqttClient
 
-# 创建 Flask 应用
-app = Flask(__name__)
+# 创建 Flask 应用 - 同时服务前端静态文件
+app = Flask(__name__, 
+            static_folder='../frontend',
+            static_url_path='',
+            template_folder='../frontend')
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# 启用 CORS
-CORS(app, supports_credentials=True)
+# Session 配置 - 解决跨域认证问题
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+
+# 启用 CORS - 允许携带凭证
+CORS(app, supports_credentials=True, origins=['http://localhost:5000', 'http://127.0.0.1:5000', 'null'])
 
 # 初始化数据库
 db = SQLAlchemy(app)
@@ -323,7 +345,7 @@ def create_task():
         user_id=user_id,
         title=data.get('title'),
         description=data.get('description'),
-        due_date=datetime.fromisoformat(data['due_date']) if data.get('due_date') else None,
+        due_date=parse_datetime(data.get('due_date')),
         priority=data.get('priority', 'normal')
     )
     
@@ -449,8 +471,8 @@ def create_calendar_event():
         user_id=user_id,
         title=data.get('title'),
         description=data.get('description'),
-        start_time=datetime.fromisoformat(data['start_time']),
-        end_time=datetime.fromisoformat(data['end_time']) if data.get('end_time') else None,
+        start_time=parse_datetime(data.get('start_time')),
+        end_time=parse_datetime(data.get('end_time')),
         all_day=data.get('all_day', False),
         color=data.get('color', '#667eea')
     )
@@ -558,6 +580,14 @@ def get_stats():
         'due_today': due_today,
         'high_priority': high_priority
     })
+
+
+# ============== 前端页面路由 ==============
+
+@app.route('/')
+def index():
+    """返回前端页面"""
+    return app.send_static_file('index.html')
 
 
 # ============== 主程序 ==============
