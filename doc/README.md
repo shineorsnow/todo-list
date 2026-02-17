@@ -10,6 +10,7 @@
 
 | 版本号 | 发布日期 | 说明 |
 |--------|----------|------|
+| v1.1.0 | 2026-02-18 | 新增 MQTT 客户端工具集（JS/Python/Java/C#/Go） |
 | v1.0.0 | 2026-02-18 | 初始版本，实现基础功能 |
 
 ---
@@ -52,11 +53,20 @@
 
 ```
 w:\代办清单\
-├── index.html      # 主页面
-├── style.css       # 样式文件
-├── app.js          # 交互逻辑
-└── doc/
-    └── README.md   # 项目文档
+├── index.html          # 主页面
+├── style.css           # 样式文件
+├── app.js              # 交互逻辑
+├── doc/
+│   ├── README.md       # 项目文档
+│   └── PROMPTS.md      # 提示词记录
+└── utils/
+    └── mqtt/           # MQTT 客户端工具集
+        ├── README.md           # 工具文档
+        ├── mqtt-client.js      # JavaScript 客户端
+        ├── mqtt_client.py      # Python 客户端
+        ├── MqttClient.java     # Java 客户端
+        ├── MqttClient.cs       # C# 客户端
+        └── mqtt_client.go      # Go 客户端
 ```
 
 ---
