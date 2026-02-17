@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办清单</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📝 待办清单</h1>
+        
+        <div class="input-section">
+            <input type="text" id="taskInput" placeholder="输入新任务..." autocomplete="off">
+            <button id="addBtn">添加</button>
+        </div>
+        
+        <ul id="taskList" class="task-list">
+            <!-- 任务项将通过 JavaScript 动态添加 -->
+        </ul>
+        
+        <div class="empty-state" id="emptyState">
+            <p>暂无任务，添加一个吧！</p>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
